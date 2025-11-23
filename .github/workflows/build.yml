@@ -53,7 +53,8 @@ jobs:
       run: |
         mkdir -p src
         mkdir -p assets
-        mkdir -p assets/images  # Create this too for compatibility
+        # Note: We are using sanitized code that expects assets at the root, not in images/
+        
         echo "${{ inputs.java_code }}" | base64 --decode > src/${{ inputs.project_name }}.java
         
         # Create minimal AndroidManifest.xml
@@ -66,10 +67,9 @@ jobs:
         </manifest>
         EOF
         
-        # Create extension.png in BOTH locations to prevent "File Not Found" errors
+        # Create extension.png directly in assets folder (No subdirectories)
         ICON_BASE64="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
         echo "$ICON_BASE64" | base64 --decode > assets/extension.png
-        echo "$ICON_BASE64" | base64 --decode > assets/images/extension.png
         
         # Create fast.yml configuration
         cat > fast.yml << EOF
