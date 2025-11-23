@@ -12,6 +12,20 @@ on:
       package_name:
         description: 'Package name'
         required: true
+      use_androidx:
+        description: 'Enable AndroidX support'
+        required: false
+        default: 'false'
+      use_proguard:
+        description: 'Enable Proguard'
+        required: false
+        default: 'false'
+      proguard_rules:
+        description: 'Base64 encoded Proguard rules'
+        required: false
+      libraries:
+        description: 'JSON string of libraries to include'
+        required: false
 
 jobs:
   build:
@@ -57,6 +71,35 @@ jobs:
         
         echo "${{ inputs.java_code }}" | base64 --decode > src/${{ inputs.project_name }}.java
         
+        # Handle Proguard Rules
+        if [ "${{ inputs.use_proguard }}" = "true" ] && [ -n "${{ inputs.proguard_rules }}" ]; then
+           echo "Adding Proguard Rules..."
+           echo "${{ inputs.proguard_rules }}" | base64 --decode > proguard-rules.pro
+        fi
+
+        # Handle Libraries (Jars)
+        if [ -n "${{ inputs.libraries }}" ]; then
+           echo "Processing libraries..."
+           mkdir -p deps
+           # We use a python one-liner to parse the JSON and save files because jq might be complex with base64
+           echo '${{ inputs.libraries }}' > libs.json
+           python3 -c "
+import json
+import base64
+import os
+
+with open('libs.json', 'r') as f:
+    data = json.load(f)
+
+for lib in data:
+    name = lib['name']
+    content = lib['content']
+    print(f'Decoding library: {name}')
+    with open(f'deps/{name}', 'wb') as f_out:
+        f_out.write(base64.b64decode(content))
+"
+        fi
+        
         # Create minimal AndroidManifest.xml
         cat > src/AndroidManifest.xml << EOF
         <?xml version="1.0" encoding="utf-8"?>
@@ -72,13 +115,35 @@ jobs:
         echo "$ICON_BASE64" | base64 --decode > assets/extension.png
         
         # Create fast.yml configuration
-        cat > fast.yml << EOF
-        name: ${{ inputs.project_name }}
-        package: ${{ inputs.package_name }}
-        version: 1
-        assets:
-          - extension.png
-        EOF
+        # We build the YAML dynamically based on inputs
+        echo "name: ${{ inputs.project_name }}" > fast.yml
+        echo "package: ${{ inputs.package_name }}" >> fast.yml
+        echo "version: 1" >> fast.yml
+        
+        if [ "${{ inputs.use_androidx }}" = "true" ]; then
+           echo "desugar: true" >> fast.yml
+        fi
+        
+        if [ "${{ inputs.use_proguard }}" = "true" ]; then
+           echo "minify: true" >> fast.yml
+           echo "proguard: proguard-rules.pro" >> fast.yml
+        fi
+        
+        # Add assets
+        echo "assets:" >> fast.yml
+        echo "  - extension.png" >> fast.yml
+
+        # Add libraries if present
+        if [ -n "${{ inputs.libraries }}" ]; then
+           echo "libraries:" >> fast.yml
+           for lib in deps/*.jar; do
+              [ -e "$lib" ] || continue
+              echo "  - $lib" >> fast.yml
+           done
+        fi
+        
+        echo "Generated fast.yml:"
+        cat fast.yml
 
     - name: Build Extension
       run: |
