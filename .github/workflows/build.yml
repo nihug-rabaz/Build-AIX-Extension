@@ -1,0 +1,48 @@
+name: Build AIX Extension
+
+on:
+  workflow_dispatch:
+    inputs:
+      java_code:
+        description: 'Base64 encoded Java file content'
+        required: true
+      project_name:
+        description: 'Name of the project'
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+
+    - name: Set up JDK 1.8
+      uses: actions/setup-java@v3
+      with:
+        distribution: 'temurin'
+        java-version: '8'
+
+    - name: Install Fast CLI
+      run: |
+        wget https://github.com/jewelshkjony/fast-cli/releases/download/v2.4.0/fast.zip
+        unzip fast.zip
+        chmod +x fast/fast
+        sudo mv fast/fast /usr/local/bin/fast
+
+    - name: Prepare Project Structure
+      run: |
+        mkdir -p src/${{ inputs.project_name }}
+        echo "${{ inputs.java_code }}" | base64 --decode > src/${{ inputs.project_name }}/${{ inputs.project_name }}.java
+        echo "name: ${{ inputs.project_name }}" > rush.yml
+
+    - name: Build Extension
+      run: |
+        fast build
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.project_name }}-extension
+        path: out/${{ inputs.project_name }}.aix
