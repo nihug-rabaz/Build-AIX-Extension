@@ -34,8 +34,19 @@ jobs:
         echo "Downloading Fast CLI from: $LATEST_URL"
         wget $LATEST_URL -O fast.zip
         unzip fast.zip
+        
+        # Create a wrapper script to run the jar
+        echo '#!/bin/bash' > fast
+        echo 'java -jar /usr/local/bin/fast.jar "$@"' >> fast
         chmod +x fast
+        
+        # Move files to system path
+        sudo mv fast.jar /usr/local/bin/fast.jar
         sudo mv fast /usr/local/bin/fast
+        
+        # Move the lib folder which is required by fast.jar
+        sudo mv lib /usr/local/bin/lib
+        
         fast --version
 
     - name: Prepare Project Structure
