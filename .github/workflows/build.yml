@@ -52,6 +52,7 @@ jobs:
     - name: Prepare Project Structure
       run: |
         mkdir -p src
+        mkdir -p assets
         echo "${{ inputs.java_code }}" | base64 --decode > src/${{ inputs.project_name }}.java
         
         # Create AndroidManifest.xml (Required by Fast CLI)
