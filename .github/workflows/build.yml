@@ -9,6 +9,9 @@ on:
       project_name:
         description: 'Name of the project'
         required: true
+      package_name:
+        description: 'Package name'
+        required: true
 
 jobs:
   build:
@@ -26,23 +29,34 @@ jobs:
 
     - name: Install Fast CLI
       run: |
-        wget https://github.com/jewelshkjony/fast-cli/releases/download/v2.4.0/fast.zip
+        # Get the latest release download URL
+        LATEST_URL=$(curl -s https://api.github.com/repos/jewelshkjony/fast-cli/releases/latest | grep "browser_download_url.*fast.zip" | cut -d '"' -f 4)
+        echo "Downloading Fast CLI from: $LATEST_URL"
+        wget $LATEST_URL -O fast.zip
         unzip fast.zip
-        chmod +x fast/fast
-        sudo mv fast/fast /usr/local/bin/fast
+        chmod +x fast
+        sudo mv fast /usr/local/bin/fast
+        fast --version
 
     - name: Prepare Project Structure
       run: |
-        mkdir -p src/${{ inputs.project_name }}
-        echo "${{ inputs.java_code }}" | base64 --decode > src/${{ inputs.project_name }}/${{ inputs.project_name }}.java
-        echo "name: ${{ inputs.project_name }}" > rush.yml
+        mkdir -p src
+        echo "${{ inputs.java_code }}" | base64 --decode > src/${{ inputs.project_name }}.java
+        
+        # Create rush.yml configuration
+        cat > rush.yml << EOF
+        name: ${{ inputs.project_name }}
+        package: ${{ inputs.package_name }}
+        version: 1
+        EOF
 
     - name: Build Extension
       run: |
         fast build
+        ls -la out/
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
         name: ${{ inputs.project_name }}-extension
-        path: out/${{ inputs.project_name }}.aix
+        path: out/*.aix
